@@ -8,7 +8,6 @@
 
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../python-sdbus-modemmanager'))
-# sys.path.append('/home/judy/repos/python-sdbus-modemmanager')
 import sdbus
 from sdbus_block.modemmanager import MMModems
 
