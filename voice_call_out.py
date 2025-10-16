@@ -18,7 +18,7 @@ import jsonpickle
 import json
 from pprint import pprint
 
-hangup_timeout = 20  # seconds
+hangup_timeout = 40  # seconds
 
 def dump_object_properties(obj):
     for attr in dir(obj):
@@ -67,7 +67,9 @@ def main(phone_number):
 	print('--- Start call ---')
 	start_time = time.monotonic()
 	call.start()
-	audio_process = None
+	audio_process = [None, None]  # to hold arecord and aplay processes
+	PLAY = 0
+	RECORD = 1
 	while True:
 		time.sleep(1)
 		current_state = call.state_text
@@ -76,21 +78,30 @@ def main(phone_number):
 		if current_state == 'MM_CALL_STATE_ACTIVE':
 			# the following is not working, audio_port and audio_format are always empty
 			# 	print(f'Audio port: {call.audio_port}   Audio format: {call.audio_format}')
-			if audio_process is None:
+			if audio_process[PLAY] is None:
 				play_cmd = ['aplay', '-D', 'hw:3,0', '/home/judy/BlueShadowsOnTheTrail_8k.wav']
 				# play_cmd = ['speaker-test', '-t', 'pink', '-c1', '-r8000', '-D', 'hw:3,0']
-				audio_process = subprocess.Popen(play_cmd)
+				print(f'Starting audio playback.')
+				audio_process[PLAY] = subprocess.Popen(play_cmd)
+
+			if audio_process[RECORD] is None:
+				record_cmd = ['arecord', '-f', 'S16_LE', '-D', 'hw:3,0', 'recording1.wav']
+				audio_process[RECORD] = subprocess.Popen(record_cmd)
 
 		if current_state == 'MM_CALL_STATE_TERMINATED':
-			if audio_process:
-				audio_process.terminate()
+			print('stopping aplay and arecord processes.')
+			if audio_process[PLAY]:
+				audio_process[PLAY].terminate()
+			if audio_process[RECORD]:
+				audio_process[RECORD].terminate()
 			break
 
-		# Hangup call.
 		if time.monotonic() - start_time >= hangup_timeout:
-			print('Stopping call, hangup time.')
-			if audio_process:
-				audio_process.terminate()
+			print('Stopping call, hangup time_out.')
+			if audio_process[PLAY]:
+				audio_process[PLAY].terminate()
+			if audio_process[RECORD]:
+				audio_process[RECORD].terminate()
 			modem.voice.hangup_all()
 			break
 	print('--- Stop call ---')
