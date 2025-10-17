@@ -76,8 +76,6 @@ def main(phone_number):
 		print(f'Current call state: {current_state}')
 
 		if current_state == 'MM_CALL_STATE_ACTIVE':
-			# the following is not working, audio_port and audio_format are always empty
-			# 	print(f'Audio port: {call.audio_port}   Audio format: {call.audio_format}')
 			if audio_process[PLAY] is None:
 				play_cmd = ['aplay', '-D', 'hw:3,0', '/home/judy/BlueShadowsOnTheTrail_8k.wav']
 				# play_cmd = ['speaker-test', '-t', 'pink', '-c1', '-r8000', '-D', 'hw:3,0']
@@ -106,8 +104,9 @@ def main(phone_number):
 			break
 	print('--- Stop call ---')
 
+	# print(f'Call list before delete: {modem.voice.list_calls()}')
 	modem.voice.delete_call(call_path)
-	print(f'Call list after delete: {modem.voice.list_calls()}')
+	# print(f'Call list after delete: {modem.voice.list_calls()}')
 
 
 if __name__ == '__main__':
