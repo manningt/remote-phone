@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# this script needs to be run with sudo to have permission to stop/start ModemManager and run mmcli commands
 import sys, os
 import time
 import subprocess
@@ -22,7 +23,7 @@ def log_subprocess_output(pipe):
 
 def set_qpcmv():
    logging.debug('before stopping MM service')
-   cmd = ['sudo', 'systemctl', 'stop', 'ModemManager.service']
+   cmd = ['systemctl', 'stop', 'ModemManager.service']
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
@@ -32,12 +33,12 @@ def set_qpcmv():
       logging.debug(f'Stopped ModemManager service: output={output.decode()}  error={error.decode()}')
    # print(f'stop MM: q output={output.decode()}  error={error.decode()}')
 
-   cmd = ['sudo', 'ModemManager', '--debug']
+   cmd = ['ModemManager', '--debug']
    debug_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
    logging.debug(f'Started ModemManager in debug mode; PID={debug_process.pid}')
    with debug_process.stdout:
       log_subprocess_output(debug_process.stdout)
-   # this process will run until we kill 
+   # this process will run until it is terminated (below)
 
    # sending the command in the following format gets an error, so using a shell script instead
    # cmd = ['sudo', 'mmcli', '-m', '0', '--command=\'+QPCMV=1,2\'']
@@ -59,7 +60,7 @@ def set_qpcmv():
    debug_process.terminate()
    debug_process.wait()
 
-   cmd = ['sudo', 'systemctl', 'start', 'ModemManager.service']
+   cmd = ['systemctl', 'start', 'ModemManager.service']
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
