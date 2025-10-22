@@ -1,0 +1,14 @@
+[Unit]
+Description=Run set_qpmcw_mode on startup
+
+[Service]
+User=root
+Type=oneshot
+ExecStartPre=/bin/sleep 30
+ExecStart=/home/judy/repos/remote-phone/set_qpwmc_mode.py
+# the log is at /home/judy/py_set_qpwmc.log
+#StandardOutput=file:/home/judy/set_qpwmc.log
+#StandardError=file:/home/judy/set_qpwmc_err.log
+
+[Install]
+WantedBy=default.target
