@@ -37,6 +37,8 @@ def main():
 		print('no modem found')
 		return
 
+	logging.debug(f'listening for calls on {modem=}')
+
 	# clear existing calls
 	call_list = modem.voice.list_calls()
 	if len(call_list) > 0:
