@@ -8,7 +8,7 @@ import logging
 # LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
 # the -6 and -04d do left alignment in the log output
 LOG_FORMAT = ('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/home/judy/py_set_qpwmc.log', filemode="w")
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/py_set_qpwmc.log', filemode="w")
 
 def log_subprocess_output(pipe):
    start_time = time.time()
