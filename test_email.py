@@ -2,21 +2,17 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#   "sdbus>=0.14.0",
 # ]
 # ///
 
 import logging
-# LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
-# the -6 and -04d do left alignment in the log output
 LOG_FORMAT = ('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/call_receive.log', filemode="w")
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 import subprocess
 import sys, os
-import tempfile
 
 def email_sms(number, text, recipient):
-	#echo "body of email" | mutt -s "subject of email" tom@manningetal.com
+	#echo "body of email" | mutt -s "subject of email" joe@example.com
 
 	body = f'From {number}:  {text}'
 	cmd = ['echo', body]
