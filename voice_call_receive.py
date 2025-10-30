@@ -14,15 +14,53 @@ import sdbus
 import time
 import datetime
 import subprocess
+from get_wav_duration import get_wav_duration
+import wave
 
 import logging
 # LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
 # the -6 and -04d do left alignment in the log output
 LOG_FORMAT = ('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/call_receive.log', filemode="w")
-wav_file_list = ['/home/judy/current-message.wav', '/home/judy/beep.wav']
+home_path = os.path.expanduser("~")
+messages_path = os.path.join(home_path, 'messages')
+wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(home_path, 'beep.wav')]
 
-def main():
+def email_message_notification(phone_number, audio_filepath, recipient):
+	#echo "body of email" | mutt -s "subject of email" joe@example.com
+	try:
+		with wave.open(audio_filepath, 'rb') as wav_file:
+			# metadata = wav_file.getparams()
+			# logging.debug(f'Wave file {audio_filepath} metadata: {metadata}')
+			framerate = wav_file.getframerate()
+			n_frames = wav_file.getnframes()
+			message_duration = n_frames / float(framerate)
+			logging.debug(f'Wave file {audio_filepath} duration: {message_duration:.1f} seconds (n_frames={n_frames}  framerate={framerate})')
+	except wave.Error as e:
+		logging.warning(f'Error reading wav file {audio_filepath}: {e}')
+		message_duration = 0.0
+
+	# return
+
+	transcription = "Transcription TBD"
+	body = f'From {phone_number}:  {transcription}'
+	cmd = ['echo', body]
+	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+	subject = f'Message from {phone_number} - Duration: {message_duration:.0f} seconds'
+	cmd = ['mutt', '-s', subject, f'{recipient}']
+	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
+	echo_process.stdout.close()
+
+	output, error = mutt_process.communicate()
+	if mutt_process.returncode != 0:
+		logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
+		# logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
+	else:
+		logging.debug(f'Successfully emailed text message to {recipient}')
+
+
+def main(recipient):
 	HANGUP_TIMEOUT = 70  # seconds
 	PLAY = 0
 	RECORD = 1
@@ -31,7 +69,7 @@ def main():
 	mms = MMModems()
 	modem = mms.get_first()
 	if modem is None:
-		log.fatal('no modem found')
+		logging.fatal('no modem found - quiting')
 		return
 
 	# clear existing calls; may not be necessary
@@ -90,7 +128,7 @@ def main():
 				else:
 					if audio_process[RECORD] is None:
 						now = datetime.datetime.now()
-						recording_filepath = f"/home/judy/messages/message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav"
+						recording_filepath = os.path.join(messages_path, f"message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav")
 						logging.debug(f'Starting recording to {recording_filepath}')
 						record_cmd = ['arecord', '-q', '-f', 'S16_LE', '-D', 'hw:3,0', recording_filepath]
 						audio_process[RECORD] = subprocess.Popen(record_cmd)
@@ -110,16 +148,26 @@ def main():
 			audio_process[PLAY].terminate()
 		if audio_process[RECORD]:
 			audio_process[RECORD].terminate()
+		if recipient:
+			email_message_notification(call.number, recording_filepath, recipient)
 
 
 if __name__ == "__main__":
-	try:
-		main()
-	except KeyboardInterrupt:
-		logging.info("Exiting application by user request.")
-	except Exception as e:
-		logging.error(f"Fatal error in main loop: {e}")
-	finally:
-		# 5. Clean up any lingering processes
-		logging.info("Cleanup complete. Goodbye.")
-		sys.exit(0)
+	recipient = None
+	if len(sys.argv) < 2:
+		logging.warning(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
+		print(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
+	else:
+		recipient = sys.argv[1]
+
+	main(recipient)
+	# try:
+	# 	main(recipient)
+	# except KeyboardInterrupt:
+	# 	logging.info("Exiting application by user request.")
+	# except Exception as e:
+	# 	logging.error(f"Fatal error in main loop: {e}")
+	# finally:
+	# 	# 5. Clean up any lingering processes
+	# 	logging.info("Cleanup complete. Goodbye.")
+	# 	sys.exit(0)
