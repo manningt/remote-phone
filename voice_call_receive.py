@@ -26,28 +26,18 @@ home_path = os.path.expanduser("~")
 messages_path = os.path.join(home_path, 'messages')
 wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(home_path, 'beep.wav')]
 
-def email_message_notification(phone_number, audio_filepath, recipient):
+def email_message_notification(phone_number, audio_filepath, message_duration, recipient):
 	#echo "body of email" | mutt -s "subject of email" joe@example.com
-	try:
-		with wave.open(audio_filepath, 'rb') as wav_file:
-			# metadata = wav_file.getparams()
-			# logging.debug(f'Wave file {audio_filepath} metadata: {metadata}')
-			framerate = wav_file.getframerate()
-			n_frames = wav_file.getnframes()
-			message_duration = n_frames / float(framerate)
-			logging.debug(f'Wave file {audio_filepath} duration: {message_duration:.1f} seconds (n_frames={n_frames}  framerate={framerate})')
-	except wave.Error as e:
-		logging.warning(f'Error reading wav file {audio_filepath}: {e}')
-		message_duration = 0.0
-
-	# return
 
 	transcription = "Transcription TBD"
 	body = f'From {phone_number}:  {transcription}'
 	cmd = ['echo', body]
 	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-	subject = f'Message from {phone_number} - Duration: {message_duration:.0f} seconds'
+	try:
+		subject = f'Message from {phone_number} - Duration: {message_duration:.1f} seconds'
+	except:
+		subject = f'Message from {phone_number}'
 	cmd = ['mutt', '-s', subject, f'{recipient}']
 	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
 	echo_process.stdout.close()
@@ -128,10 +118,14 @@ def main(recipient):
 				else:
 					if audio_process[RECORD] is None:
 						now = datetime.datetime.now()
-						recording_filepath = os.path.join(messages_path, f"message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav")
-						logging.debug(f'Starting recording to {recording_filepath}')
-						record_cmd = ['arecord', '-q', '-f', 'S16_LE', '-D', 'hw:3,0', recording_filepath]
-						audio_process[RECORD] = subprocess.Popen(record_cmd)
+						message_filename = f"message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav"
+						wav_recording_filepath = os.path.join('/tmp', message_filename)
+						logging.debug(f'Starting recording to {wav_recording_filepath}')
+						cmd = ['arecord', '-q', '-f', 'S16_LE', '-D', 'hw:3,0', wav_recording_filepath]
+						try:
+							audio_process[RECORD] = subprocess.Popen(cmd)
+						except Exception as e:
+							logging.error(f'Failed to start arecord process: {e}')
 
 			if current_state == 'MM_CALL_STATE_TERMINATED':
 				break
@@ -149,7 +143,40 @@ def main(recipient):
 		if audio_process[RECORD]:
 			audio_process[RECORD].terminate()
 		if recipient:
-			email_message_notification(call.number, recording_filepath, recipient)
+			mp3_ok = True
+			logging.debug(f'Processing {wav_recording_filepath} for email notification.')
+			if os.path.exists(wav_recording_filepath):
+				mp3_recording_filepath = os.path.join(home_path, messages_path, message_filename.replace('.wav', '.mp3'))
+				cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', wav_recording_filepath, mp3_recording_filepath]
+				try:
+					ffmpeg_process = subprocess.Popen(cmd)
+					output, error = ffmpeg_process.communicate()
+					if ffmpeg_process.returncode != 0:
+						logging.error(f'Failed generate mp3 with ffmpeg: output={output.decode()}  error={error.decode()}')
+						mp3_ok = False
+				except Exception as e:
+					logging.error(f'Failed to start ffmpeg_process {e}')
+					mp3_ok = False
+				if mp3_ok:
+					logging.debug(f'Successfully created mp3 file: {mp3_recording_filepath}')
+
+				message_duration = 0.0
+				cmd = ['ffprobe', '-i', mp3_recording_filepath, '-show_entries', 'format=duration', '-v', 'quiet', '-of', 'csv="p=0"']
+				logging.debug(f'ffprobe cmd={" ".join(cmd)}')
+				try:
+					probe_process = subprocess.Popen(cmd, shell=True)
+					message_duration, error = probe_process.communicate()
+					if probe_process.returncode != 0:
+						logging.error(f'Obtaining duration of {mp3_recording_filepath} failed: {error.decode()}')
+				except Exception as e:
+					logging.error(f'Failed to start probe_process {e}')
+			else:
+				logging.error(f'WAV recording file not found: {wav_recording_filepath}')
+				mp3_ok = False
+				
+			if mp3_ok:
+				logging.debug(f'{message_duration=}')
+				email_message_notification(call.number, mp3_recording_filepath, message_duration, recipient)
 
 
 if __name__ == "__main__":
