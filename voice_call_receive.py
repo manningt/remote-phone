@@ -143,39 +143,41 @@ def main(recipient):
 		if audio_process[RECORD]:
 			audio_process[RECORD].terminate()
 		if recipient:
-			mp3_ok = True
+			mp3_ok = False
 			logging.debug(f'Processing {wav_recording_filepath} for email notification.')
 			if os.path.exists(wav_recording_filepath):
 				mp3_recording_filepath = os.path.join(home_path, messages_path, message_filename.replace('.wav', '.mp3'))
-				cmd = ['ffmpeg', '-hide_banner', '-loglevel', 'error', '-i', wav_recording_filepath, mp3_recording_filepath]
+				cmd = ['ffmpeg', '-hide_banner', '-i', wav_recording_filepath, mp3_recording_filepath]
 				try:
-					ffmpeg_process = subprocess.Popen(cmd)
-					output, error = ffmpeg_process.communicate()
+					# FFmpeg outputs information to stderr for status messages, warnings, and errors, 
+					# while stdout is reserved for the actual data being processed
+					ffmpeg_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+					_, error = ffmpeg_process.communicate()
 					if ffmpeg_process.returncode != 0:
-						logging.error(f'Failed generate mp3 with ffmpeg: output={output.decode()}  error={error.decode()}')
-						mp3_ok = False
+						logging.error(f'Failed generate mp3 with ffmpeg: error={error.decode()}')
+					else:
+						mp3_ok = True
 				except Exception as e:
 					logging.error(f'Failed to start ffmpeg_process {e}')
-					mp3_ok = False
-				if mp3_ok:
-					logging.debug(f'Successfully created mp3 file: {mp3_recording_filepath}')
-
-				message_duration = 0.0
-				cmd = ['ffprobe', '-i', mp3_recording_filepath, '-show_entries', 'format=duration', '-v', 'quiet', '-of', 'csv="p=0"']
-				logging.debug(f'ffprobe cmd={" ".join(cmd)}')
-				try:
-					probe_process = subprocess.Popen(cmd, shell=True)
-					message_duration, error = probe_process.communicate()
-					if probe_process.returncode != 0:
-						logging.error(f'Obtaining duration of {mp3_recording_filepath} failed: {error.decode()}')
-				except Exception as e:
-					logging.error(f'Failed to start probe_process {e}')
 			else:
 				logging.error(f'WAV recording file not found: {wav_recording_filepath}')
-				mp3_ok = False
 				
 			if mp3_ok:
-				logging.debug(f'{message_duration=}')
+				message_duration = 0.0
+				# logging.debug(f'Successfully created mp3 file: {mp3_recording_filepath}')
+				for line in error.decode().splitlines():
+					# logging.debug(line)
+					if 'time=' in line:
+						size = line.split('size=')[1].split()[0]
+						if size.lower() == '0kb':
+							pass
+						else:
+							timestamp = line.split('time=')[1].split()[0]
+							timestamp_list = timestamp.split(':')
+							hours = int(timestamp_list[0])
+							minutes = int(timestamp_list[1])
+							seconds = float(timestamp_list[2])
+							message_duration = (minutes * 60) + seconds
 				email_message_notification(call.number, mp3_recording_filepath, message_duration, recipient)
 
 
