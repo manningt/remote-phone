@@ -38,7 +38,7 @@ def email_message_notification(phone_number, audio_filepath, message_duration, r
 		subject = f'Message from {phone_number} - Duration: {message_duration:.1f} seconds'
 	except:
 		subject = f'Message from {phone_number}'
-	cmd = ['mutt', '-s', subject, f'{recipient}']
+	cmd = ['mutt', '-s', subject, '-a', audio_filepath, '--', recipient]
 	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
 	echo_process.stdout.close()
 
@@ -46,8 +46,8 @@ def email_message_notification(phone_number, audio_filepath, message_duration, r
 	if mutt_process.returncode != 0:
 		logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
 		# logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
-	else:
-		logging.debug(f'Successfully emailed text message to {recipient}')
+	# else:
+	# 	logging.debug(f'Successfully emailed text message to {recipient}')
 
 
 def main(recipient):
