@@ -115,17 +115,17 @@ def main(recipient):
 							logging.debug(f'Finished aplay of {wav_file_list[wav_file_index]}')
 							wav_file_index += 1
 							audio_process[PLAY] = None
-				else:
-					if audio_process[RECORD] is None:
-						now = datetime.datetime.now()
-						message_filename = f"message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav"
-						wav_recording_filepath = os.path.join('/tmp', message_filename)
-						logging.debug(f'Starting recording to {wav_recording_filepath}')
-						cmd = ['arecord', '-q', '-f', 'S16_LE', '-D', 'hw:3,0', wav_recording_filepath]
-						try:
-							audio_process[RECORD] = subprocess.Popen(cmd)
-						except Exception as e:
-							logging.error(f'Failed to start arecord process: {e}')
+							if wav_file_index == 1 and audio_process[RECORD] is None:
+								# Start recording after the first message is played
+								now = datetime.datetime.now()
+								message_filename = f"message-{now.strftime('%Y-%m-%d_%H-%M-%S')}.wav"
+								wav_recording_filepath = os.path.join('/tmp', message_filename)
+								logging.debug(f'Starting recording to {wav_recording_filepath}')
+								cmd = ['arecord', '-q', '-f', 'S16_LE', '-D', 'hw:3,0', wav_recording_filepath]
+								try:
+									audio_process[RECORD] = subprocess.Popen(cmd)
+								except Exception as e:
+									logging.error(f'Failed to start arecord process: {e}')
 
 			if current_state == 'MM_CALL_STATE_TERMINATED':
 				break
