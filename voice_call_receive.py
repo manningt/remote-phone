@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = [
 #   "sdbus>=0.14.0",
-#   "jsonpickle>=2.2.0",
+#   "phonenumbers"
 # ]
 # ///
 
@@ -16,6 +16,7 @@ import datetime
 import subprocess
 from get_wav_duration import get_wav_duration
 import wave
+import phonenumbers
 
 import logging
 # LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
@@ -29,15 +30,23 @@ wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(ho
 def email_message_notification(phone_number, audio_filepath, message_duration, recipient):
 	#echo "body of email" | mutt -s "subject of email" joe@example.com
 
-	transcription = "Transcription TBD"
-	body = f'From {phone_number}:  {transcription}'
+	incoming_number_parsed = phonenumbers.parse(phone_number, None)
+	if not phonenumbers.is_valid_number(incoming_number_parsed):
+		logging.warning(f'Invalid incoming phone number: {phone_number}')
+		incoming_number_formatted = phone_number
+	else:
+		incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+
+	transcription = "Transcription may be implemented in the future."
+	body = f'From {incoming_number_formatted}:  {transcription}'
 	cmd = ['echo', body]
 	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
+
 	try:
-		subject = f'Message from {phone_number} - Duration: {message_duration:.1f} seconds'
+		subject = f'Message from {incoming_number_formatted}  ({message_duration:.1f} seconds)'
 	except:
-		subject = f'Message from {phone_number}'
+		subject = f'Message from {incoming_number_formatted}'
 	cmd = ['mutt', '-s', subject, '-a', audio_filepath, '--', recipient]
 	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
 	echo_process.stdout.close()
@@ -45,7 +54,6 @@ def email_message_notification(phone_number, audio_filepath, message_duration, r
 	output, error = mutt_process.communicate()
 	if mutt_process.returncode != 0:
 		logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
-		# logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
 	# else:
 	# 	logging.debug(f'Successfully emailed text message to {recipient}')
 
@@ -72,8 +80,23 @@ def main(recipient):
 	call_list = modem.voice.list_calls()
 	previous_call_list_length = len(call_list)
 
-	logging.debug(f'listening for calls on {modem=}')
-	print(f'listening for calls on {modem=}')
+	my_phone_number = modem.own_numbers[0]
+	if my_phone_number[0] != '+':
+		my_phone_number = '+' + my_phone_number		
+	my_number_parsed = phonenumbers.parse(my_phone_number, None)
+	if not phonenumbers.is_valid_number(my_number_parsed):
+		logging.error(f'Invalid phone number: {my_phone_number}')
+		my_number_formatted = my_phone_number
+	else:
+		my_number_formatted = phonenumbers.format_number(my_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+
+	startup_msg = f'{modem.model} - listening for calls coming to {my_number_formatted}; '# on {modem}; '
+	if recipient:
+		startup_msg += f'will email: {recipient}'
+	else:
+		startup_msg += 'no email recipient specified.'
+	logging.debug(startup_msg)
+	print(startup_msg)
 
 	while True: #loop forever to receive calls
 		while True: # wait for an incoming call
@@ -184,7 +207,6 @@ def main(recipient):
 if __name__ == "__main__":
 	recipient = None
 	if len(sys.argv) < 2:
-		logging.warning(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
 		print(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
 	else:
 		recipient = sys.argv[1]
