@@ -1,0 +1,14 @@
+[Unit]
+Description=Process incoming phone calls using voice_call_receive.py
+After=set_qpwmc.service
+
+[Service]
+#Type=dbus
+#BusName=org.freedesktop.nm_dispatcher
+ExecStartPre=/usr/bin/sleep 4
+ExecStart=/home/judy/repos/remote-phone/voice_call_receive.py voicemail@sargenthouse.org
+# the log file is /tmp/call_receive.log
+Restart=no
+
+[Install]
+RequiredBy=set_qpwmc.target
