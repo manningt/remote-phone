@@ -44,7 +44,7 @@ def email_message_notification(phone_number, audio_filepath, message_duration, r
 
 
 	try:
-		subject = f'Message from {incoming_number_formatted}  ({message_duration:.1f} seconds)'
+		subject = f'Message from {incoming_number_formatted}  ({message_duration:.0f} seconds)'
 	except:
 		subject = f'Message from {incoming_number_formatted}'
 	cmd = ['mutt', '-s', subject, '-a', audio_filepath, '--', recipient]
