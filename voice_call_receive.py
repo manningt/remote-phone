@@ -14,8 +14,6 @@ import sdbus
 import time
 import datetime
 import subprocess
-from get_wav_duration import get_wav_duration
-import wave
 import phonenumbers
 
 import logging
@@ -41,7 +39,6 @@ def email_message_notification(phone_number, audio_filepath, message_duration, r
 	body = f'From {incoming_number_formatted}:  {transcription}'
 	cmd = ['echo', body]
 	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-
 
 	try:
 		subject = f'Message from {incoming_number_formatted}  ({message_duration:.0f} seconds)'
