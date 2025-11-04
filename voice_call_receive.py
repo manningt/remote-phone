@@ -28,12 +28,16 @@ wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(ho
 def email_message_notification(phone_number, audio_filepath, message_duration, recipient):
 	#echo "body of email" | mutt -s "subject of email" joe@example.com
 
-	incoming_number_parsed = phonenumbers.parse(phone_number, None)
-	if not phonenumbers.is_valid_number(incoming_number_parsed):
-		logging.warning(f'Invalid incoming phone number: {phone_number}')
+	try:
+		incoming_number_parsed = phonenumbers.parse(phone_number, None)
+		if not phonenumbers.is_valid_number(incoming_number_parsed):
+			logging.warning(f'Invalid incoming phone number: {phone_number}')
+			incoming_number_formatted = phone_number
+		else:
+			incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+	except Exception as e:
+		logging.warning(f'Error parsing incoming phone number {phone_number}: {e}')
 		incoming_number_formatted = phone_number
-	else:
-		incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
 
 	transcription = "Transcription may be implemented in the future."
 	body = f'From {incoming_number_formatted}:  {transcription}'
