@@ -2,6 +2,8 @@
 Description=Process incoming text messages using sms_receive.py
 
 [Service]
+# the sleep delay is to get 'uv run' ready; ideally there would be a 'After' used
+ExecStartPre=/usr/bin/sleep 60
 ExecStart=%h/repos/remote-phone/sms_receive.py
 # the log file is /tmp/sms_receive.log
 Restart=no

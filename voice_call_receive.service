@@ -5,7 +5,7 @@ After=set_qpwmc.service
 [Service]
 #Type=dbus
 #BusName=org.freedesktop.nm_dispatcher
-ExecStartPre=/usr/bin/sleep 4
+ExecStartPre=/usr/bin/sleep 20
 ExecStart=%h/repos/remote-phone/voice_call_receive.py
 # the log file is /tmp/call_receive.log
 Restart=no
