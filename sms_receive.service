@@ -1,0 +1,10 @@
+[Unit]
+Description=Process incoming text messages using sms_receive.py
+
+[Service]
+ExecStart=%h/repos/remote-phone/sms_receive.py
+# the log file is /tmp/sms_receive.log
+Restart=no
+
+[Install]
+WantedBy=default.target
