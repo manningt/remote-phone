@@ -203,8 +203,11 @@ def main(recipient):
 
 if __name__ == "__main__":
 	recipient = None
-	if len(sys.argv) < 2:
-		print(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
+	if 'EMAIL_ADDR' in os.environ:
+		recipient = os.environ['EMAIL_ADDR']
+		logging.debug(f'Using email recipient from environment: {recipient}')
+	elif len(sys.argv) < 2:
+		logging.warning(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient> -- Not sending emails.')
 	else:
 		recipient = sys.argv[1]
 
