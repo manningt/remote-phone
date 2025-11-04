@@ -6,7 +6,7 @@ After=set_qpwmc.service
 #Type=dbus
 #BusName=org.freedesktop.nm_dispatcher
 ExecStartPre=/usr/bin/sleep 4
-ExecStart=/home/judy/repos/remote-phone/voice_call_receive.py voicemail@sargenthouse.org
+ExecStart=%h/repos/remote-phone/voice_call_receive.py
 # the log file is /tmp/call_receive.log
 Restart=no
 
