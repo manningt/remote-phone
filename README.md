@@ -9,15 +9,55 @@ There are modem specific configuration parameters that need to be applied.  This
 ## Python
 - the python scripts use [uv](https://docs.astral.sh/uv/getting-started/installation/) to fetch the required modules.
 - clone https://github.com/zhanglongqi/python-sdbus-modemmanager
+
+## Polkit configuration
+To enable using the cellular phone in a program, a rule has to be added:
+```
+sudo vi /etc/polkit-1/rules.d/126-modemmanager-voice-allow.rules
+```
+The following 2 rules should be put in the file to allow a user to perform voice and sms without authetication:
+```
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.ModemManager1.Voice" &&
+        subject.user == "YourUserName") {
+        return polkit.Result.YES;
+    }
+});
+
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.ModemManager1.Messaging" && subject.user == "YourUserName") {
+        return polkit.Result.YES;
+    }
+});
+```
+and then restart the polkit service: ```sudo systemctl restart polkit.service```
+
+## EC25 modem setup
+USB Audio Class (UAC) mode needs to be enabled, as per the following commands.  _Before_ doing the commands, type ```ls /dev/snd/``` to see the sound devices before enabling UAC mode.  When ModemManager is run in debug mode, it writes _a lot_ of log messages to the terminal.
+```
+sudo systemctl stop ModemManager
+sudo /usr/sbin/ModemManager --debug
+```
+In different terminal session:
+```
+sudo mmcli -m 0 --command='+QCFG="USBCFG",0x2C7C,0x0125,1,1,1,1,1,0,1'
+sudo mmcli -m 0 --command='+QCFG="USBCFG"'
+sudo systemctl restart ModemManager
+```
+In the terminal session where ModemManager is running in debug mode then type Control-C.
+Then restart the ModemManager: ```sudo systemctl stop ModemManager```
+
+After doing the commands, type ```ls /dev/snd/``` again.  Addition devices, e.g. controlC3 pcmC3D0c pcmC3D0p should now be present.
+
 ## Email
-- mutt is used to send email when an SMS and voice mail is received. [Mutt installation](https://linuxconfig.org/how-to-install-configure-and-use-mutt-with-a-gmail-account-on-linux)
+- mutt is used to send email when an SMS and voice mail is received. Here is how to do [Mutt installation](https://linuxconfig.org/how-to-install-configure-and-use-mutt-with-a-gmail-account-on-linux)
     - a gmail account with an app password can be used.  The app password can be obtained at https://support.google.com/accounts/answer/185833?hl=en
     - Mutt uses a configuration file:  ~/.mutt/muttrc which stores the smtp_url & smtp_password, along with other config info.  Here is an example:
 ```
 set copy = no
 
-set from = "answering.machine@sargenthouse.org"
-set realname = "SHM Answering Machine"
+set from = "email.id@domain.org"
+set realname = "My Answering Machine"
 
 set ssl_force_tls = yes
 
