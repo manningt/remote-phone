@@ -22,13 +22,15 @@ TEXT_SUBJECT_MAX_LENGTH = 64
 
 def email_message_notification(phone_number, message, recipient):
 	#echo "body of email" | mutt -s "subject of email" joe@example.com
-
-	incoming_number_parsed = phonenumbers.parse(phone_number, None)
-	if not phonenumbers.is_valid_number(incoming_number_parsed):
-		logging.warning(f'Invalid incoming phone number: {phone_number}')
+	try:
+		incoming_number_parsed = phonenumbers.parse(phone_number, None)
+		if not phonenumbers.is_valid_number(incoming_number_parsed):
+			logging.warning(f'Invalid incoming phone number: {phone_number}')
+			incoming_number_formatted = phone_number
+		else:
+			incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+	except:
 		incoming_number_formatted = phone_number
-	else:
-		incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
 
 	body = f'From {incoming_number_formatted}:  {message}'
 	cmd = ['echo', body]
