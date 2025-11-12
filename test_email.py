@@ -11,33 +11,50 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 import subprocess
 import sys, os
 
-def email_sms(number, text, recipient):
+def send_email(recipient, subject, body=None, attachments=[]):
 	#echo "body of email" | mutt -s "subject of email" joe@example.com
 
-	body = f'From {number}:  {text}'
-	cmd = ['echo', body]
-	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+	if recipient is None or subject is None:
+		logging.error('No recipient or subject for send_email')
+		return False
 
-	subject = f'SMS from {number}'
-	cmd = ['mutt', '-s', subject, f'{recipient}']
+	if body:
+		cmd = ['echo', body]
+		echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+	cmd = ['mutt', '-s', subject]
+	for attachment in attachments:
+		cmd.append('-a')
+		cmd.append(attachment)
+	cmd.append('--')
+	cmd.append(f'{recipient}')
+
 	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
 	echo_process.stdout.close()
 
 	output, error = mutt_process.communicate()
 	if mutt_process.returncode != 0:
-		print(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
-		# logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
-	else:
-		print(f'Successfully emailed text message to {recipient}')
+		# logging.error(f'Failed to email text message: {output=}  {error=}')
+		return False
+	# logging.debug(f'Successfully emailed text message to {recipient}')
+	return True
 
 
 if __name__ == "__main__":
-	recipient = None
-	if len(sys.argv) < 2:
-		print(f'No email recipient specified; Usage: {sys.argv[0]} <email_recipient>\n\tNot sending emails.')
-	else:
-		recipient = sys.argv[1]
+	import argparse
+	parser = argparse.ArgumentParser(description='sends an email to recipient using subject, body, attachments')
+	parser.add_argument('-r','--recipient', help='properly formatted email address', required=True)
+	parser.add_argument('-s','--subject', help='subject for email', required=True)
+	parser.add_argument('-b','--body', help='body of email', required=True)
+	parser.add_argument('-a','--attachments', help='comma separated filepaths to include as attachments for the email', required=False)
+	args = parser.parse_args()
+	# print(f'{args=}')
 
-	number = "1234567890"
-	text = "This is a test message."
-	email_sms(number, text, recipient)
+	if args.attachments is None:
+		rc = send_email(args.recipient, args.subject, args.body)
+	else:
+		attachment_list = args.attachments.split(',')
+		rc = send_email(args.recipient, args.subject, args.body, attachment_list)
+
+	if not rc:
+		logging.error("send_email failed.")
