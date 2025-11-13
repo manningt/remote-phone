@@ -3,7 +3,7 @@ The objective is to use a Small Board Computer (SBC) with an attached cellular m
 
 The software uses the [D-Bus](https://en.wikipedia.org/wiki/D-Bus) to interact with the modem.  D-Bus uses [Polkit](https://en.wikipedia.org/wiki/Polkit) for access control of the modem.  The default configuration of Polkit only allows local users (logged into the desktop) to send/receive calls and SMS.  A Polkit rules file needs to be created to allow the modem to be used by a daemon process.
 
-There are modem specific configuration parameters that need to be applied.  This example uses an Quectel EC25 mounted onto a Mini PCI-E to USB Adapter with SIM Card Slot.  In order to have the modem audio channels work with [ALSA](https://en.wikipedia.org/wiki/Advanced_Linux_Sound_Architecture), PWM mode has to be set using an AT command.  This can only be performed when the [ModemManager](https://modemmanager.org) is launched with the --debug flag. The EC25's PWM mode is not persisted, so it has to be set when the SBC boots. The script ```set_qpwmc_mode.py``` is provided to do that, alsong with a systemd user service.
+There are modem specific configuration parameters that need to be applied.  This example uses an Quectel EC25 mounted on a Mini PCI-E to USB Adapter with SIM Slot.  In order to have the modem audio channels work with [ALSA](https://en.wikipedia.org/wiki/Advanced_Linux_Sound_Architecture), PCM mode has to be set using an AT command.  This can only be performed when the [ModemManager](https://modemmanager.org) is launched with the --debug flag. The EC25's PCM mode is not persisted, so it has to be set when the SBC boots. The script ```set_qpwmc_mode.py``` is provided to do that, alsong with a systemd user service.  The qpwmc_mode scripts should have been named qpcm_mode.
 
 # Installation
 ## Python
@@ -38,38 +38,33 @@ USB Audio Class (UAC) mode needs to be enabled, as per the following commands.  
 sudo systemctl stop ModemManager
 sudo /usr/sbin/ModemManager --debug
 ```
-In different terminal session:
+In different terminal session, type the following.  The last '1' in the USBCFG register enables UAC mode.
 ```
 sudo mmcli -m 0 --command='+QCFG="USBCFG",0x2C7C,0x0125,1,1,1,1,1,0,1'
 sudo mmcli -m 0 --command='+QCFG="USBCFG"'
 sudo systemctl restart ModemManager
 ```
-In the terminal session where ModemManager is running in debug mode then type Control-C.
-Then restart the ModemManager: ```sudo systemctl stop ModemManager```
+In the terminal session where ModemManager is running in debug mode then type Control-C, and then restart the ModemManager: ```sudo systemctl restart ModemManager```
 
 After doing the commands, type ```ls /dev/snd/``` again.  Addition devices, e.g. controlC3 pcmC3D0c pcmC3D0p should now be present.
 
 ## Email
-- mutt is used to send email when an SMS and voice mail is received. Here is how to do [Mutt installation](https://linuxconfig.org/how-to-install-configure-and-use-mutt-with-a-gmail-account-on-linux)
-    - a gmail account with an app password can be used.  The app password can be obtained at https://support.google.com/accounts/answer/185833?hl=en
-    - Mutt uses a configuration file:  ~/.mutt/muttrc which stores the smtp_url & smtp_password, along with other config info.  Here is an example:
+mutt is used to send email when an SMS and voice mail is received. Here is how to do [Mutt installation](https://linuxconfig.org/how-to-install-configure-and-use-mutt-with-a-gmail-account-on-linux)
+- a gmail account with an app password can be used.  The app password can be obtained at https://support.google.com/accounts/answer/185833?hl=en
+- Mutt uses a configuration file:  ~/.mutt/muttrc which stores the smtp_url & smtp_password, along with other config info.  The 16 character App password obtained from Google is used as the smtp_pass.  Here is an example:
 ```
 set copy = no
-
-set from = "email.id@domain.org"
+set from = "some_email_name@some_domain.org"
 set realname = "My Answering Machine"
-
 set ssl_force_tls = yes
-
-# Smtp settings
-set smtp_url = "smtp://foo.bar@gmail.com@smtp.gmail.com:587"
+set smtp_url = "smtp://some_gmail_name@gmail.com@smtp.gmail.com:587"
 set smtp_pass = "xxxx xxxx xxxx xxxx"
 ```
 To test:
     ```echo "email from mutt" | mutt -s "mutt test N" <your_email>```
 
 ## systemd service files
-The EMAIL_ADDR variable used by the python scripts under systemd control is configured using [environment.d](https://www.freedesktop.org/software/systemd/man/latest/environment.d.html).  The following shell commands enable sms/voice_call_receive.py scripts to run on startup:
+An EMAIL_ADDR variable is used by the python scripts (sms_receive and voice_call_receive).  These scripts can be controlled by systemd; in this case the EMAIL_ADDR variable is configured using [environment.d](https://www.freedesktop.org/software/systemd/man/latest/environment.d.html).  The following shell commands enable sms/voice_call_receive.py scripts to run on startup:
 ```
 mkdir .config/systemd/user
 cp ~/repos/remote-phone/*service .config/systemd/user
@@ -79,3 +74,6 @@ systemctl --user enable set_qpwmc.service
 systemctl --user enable voice_call_receive.service
 systemctl --user enable sms_receive.service
 ```
+
+# Cellular to Wifi gateway
+Refer to README-gateway.md if the modem is to be used for an internet connection as well as a phone.v
