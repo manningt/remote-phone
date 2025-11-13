@@ -15,6 +15,7 @@ import time
 import datetime
 import subprocess
 import phonenumbers
+from test_email import send_email
 
 import logging
 # LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
@@ -24,39 +25,6 @@ logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/call_
 home_path = os.path.expanduser("~")
 messages_path = os.path.join(home_path, 'messages')
 wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(home_path, 'beep.wav')]
-
-def email_message_notification(phone_number, audio_filepath, message_duration, recipient):
-	#echo "body of email" | mutt -s "subject of email" joe@example.com
-
-	try:
-		incoming_number_parsed = phonenumbers.parse(phone_number, None)
-		if not phonenumbers.is_valid_number(incoming_number_parsed):
-			logging.warning(f'Invalid incoming phone number: {phone_number}')
-			incoming_number_formatted = phone_number
-		else:
-			incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
-	except Exception as e:
-		logging.warning(f'Error parsing incoming phone number {phone_number}: {e}')
-		incoming_number_formatted = phone_number
-
-	transcription = "Transcription may be implemented in the future."
-	body = f'From {incoming_number_formatted}:  {transcription}'
-	cmd = ['echo', body]
-	echo_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-
-	try:
-		subject = f'Message from {incoming_number_formatted}  ({message_duration:.0f} seconds)'
-	except:
-		subject = f'Message from {incoming_number_formatted}'
-	cmd = ['mutt', '-s', subject, '-a', audio_filepath, '--', recipient]
-	mutt_process = subprocess.Popen(cmd, stdin=echo_process.stdout, stdout=subprocess.PIPE)
-	echo_process.stdout.close()
-
-	output, error = mutt_process.communicate()
-	if mutt_process.returncode != 0:
-		logging.error(f'Failed to email text message: output={output.decode()}  error={error.decode()}')
-	# else:
-	# 	logging.debug(f'Successfully emailed text message to {recipient}')
 
 
 def main(recipient):
@@ -69,7 +37,7 @@ def main(recipient):
 	modem = mms.get_first()
 	if modem is None:
 		logging.fatal('no modem found - quiting')
-		return
+		sys.exit(1)
 
 	# clear existing calls; may not be necessary
 	call_list = modem.voice.list_calls()
@@ -102,11 +70,15 @@ def main(recipient):
 	while True: #loop forever to receive calls
 		while True: # wait for an incoming call
 			time.sleep(1)
-			call_list = modem.voice.list_calls()
-			if len(call_list) > previous_call_list_length:
-				previous_call_list_length = len(call_list)
-				# logging.debug(f'New call detected: {call_list}')
-				break
+			try:
+				call_list = modem.voice.list_calls()
+				if len(call_list) > previous_call_list_length:
+					previous_call_list_length = len(call_list)
+					# logging.debug(f'New call detected: {call_list}')
+					break
+			except Exception as e:
+				logging.fatal(f'Failed to poll modem for call list: {e}')
+				sys.exit(1)
 		
 		logging.debug(f'Handling call: {call_list[0]}')
 		call = MMCall(call_list[0]) # get the most recent call; new calls are added to the beginning of the list
@@ -178,7 +150,7 @@ def main(recipient):
 					ffmpeg_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 					_, error = ffmpeg_process.communicate()
 					if ffmpeg_process.returncode != 0:
-						logging.error(f'Failed generate mp3 with ffmpeg: error={error.decode()}')
+						logging.error(f'Failed to generate mp3 with ffmpeg: {error=}')
 					else:
 						mp3_ok = True
 				except Exception as e:
@@ -202,8 +174,25 @@ def main(recipient):
 							minutes = int(timestamp_list[1])
 							seconds = float(timestamp_list[2])
 							message_duration = (minutes * 60) + seconds
-				email_message_notification(call.number, mp3_recording_filepath, message_duration, recipient)
+				# email_message_notification(call.number, mp3_recording_filepath, message_duration, recipient)
+				
+				try:
+					incoming_number_parsed = phonenumbers.parse(call.number, None)
+					if not phonenumbers.is_valid_number(incoming_number_parsed):
+						logging.warning(f'Invalid incoming phone number: {call.number}')
+						incoming_number_formatted = call.number
+					else:
+						incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
+				except Exception as e:
+					logging.warning(f'Error parsing incoming phone number {call.number}: {e}')
+					incoming_number_formatted = call.number
 
+				try:
+					subject = f'Voice mail from {incoming_number_formatted}  ({message_duration:.0f} seconds)'
+				except:
+					subject = f'Voice mail from {incoming_number_formatted}'
+				body = subject # in the future add a transcription
+				send_email(recipient, subject, body, [mp3_recording_filepath])
 
 if __name__ == "__main__":
 	recipient = None
