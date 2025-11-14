@@ -17,8 +17,15 @@ import phonenumbers
 from datetime import datetime, timedelta, timezone
 
 import logging
-LOG_FORMAT = ('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/sms_receive.log', filemode="w")
+logger = logging.getLogger('my_logger')
+logger.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler('/tmp/sms_receive.log', mode='w')
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.propagate = False  # Prevent propagation to the console
+
 TEXT_SUBJECT_MAX_LENGTH = 64
 
 def email_message_notification(phone_number, message_datetime, message, recipient):
