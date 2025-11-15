@@ -19,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 import logging
 logger = logging.getLogger('my_logger')
 logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('/tmp/sms_receive.log', mode='w')
+file_handler = logging.FileHandler('/tmp/sms_receive.log', mode='w', flush=True)
 file_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
 file_handler.setFormatter(formatter)
