@@ -7,7 +7,7 @@ import subprocess
 import logging
 logger = logging.getLogger('my_logger')
 logger.setLevel(logging.INFO)
-file_handler = logging.FileHandler('/tmp/py_set_qpwmc.log', mode='w')
+file_handler = logging.FileHandler('/tmp/set_qpcm_mode.log', mode='w')
 file_handler.setLevel(logging.INFO)
 formatter = logging.Formatter('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
 file_handler.setFormatter(formatter)
@@ -26,6 +26,8 @@ def log_subprocess_output(pipe):
       #    return
 
 def set_qpcmv():
+   script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+
    logger.debug('before stopping MM service')
    cmd = ['systemctl', 'stop', 'ModemManager.service']
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -46,7 +48,7 @@ def set_qpcmv():
 
    # sending the command in the following format gets an error, so using a shell script instead
    # cmd = ['sudo', 'mmcli', '-m', '0', '--command=\'+QPCMV=1,2\'']
-   cmd = ['set_qpwmc_mode.sh']
+   cmd = [os.path.join(script_dir, 'set_qpwmc_mode.sh')]
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
@@ -54,7 +56,7 @@ def set_qpcmv():
    else:
       # verify the setting
       # cmd = ['mmcli', '-m', '0', '--command=\'+QPCMV?\'']
-      cmd = ['/home/judy/repos/remote-phone/get_qpwmc_mode.sh']
+      cmd = [os.path.join(script_dir, 'get_qpwmc_mode.sh')]
       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       output, error = process.communicate()
       if '+QPCMV: 1,2' in output.decode():
