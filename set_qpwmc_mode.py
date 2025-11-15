@@ -5,48 +5,52 @@ import time
 import subprocess
 
 import logging
-# LOG_FORMAT = "%(asctime)s %(funcName) %(lineno)d %(levelname)s: %(message)s"
-# the -6 and -04d do left alignment in the log output
-LOG_FORMAT = ('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
-logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT, filename='/tmp/py_set_qpwmc.log', filemode="w")
+logger = logging.getLogger('my_logger')
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler('/tmp/py_set_qpwmc.log', mode='w')
+file_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+logger.propagate = False  # Prevent propagation to the console
 
 def log_subprocess_output(pipe):
    start_time = time.time()
    for line in iter(pipe.readline, b''): # b'\n'-separated lines
-      logging.debug(f'subprocess output: {line.decode().strip()}')
+      logger.debug(f'subprocess output: {line.decode().strip()}')
       if time.time() - start_time > 40:
-         logging.debug('timeout reached, stopping subprocess output logging')
+         logger.debug('timeout reached, stopping subprocess output logging')
          return
       # if 'RSSI (LTE):' in line.decode():
-      #    logging.info(f'got RSSI (LTE) line from subprocess: {line.decode().strip()}')
+      #    logger.info(f'got RSSI (LTE) line from subprocess: {line.decode().strip()}')
       #    return
 
 def set_qpcmv():
-   logging.debug('before stopping MM service')
+   logger.debug('before stopping MM service')
    cmd = ['systemctl', 'stop', 'ModemManager.service']
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
-      logging.error(f'Failed to stop ModemManager: output={output.decode()}  error={error.decode()}')
+      logger.error(f'Failed to stop ModemManager: output={output.decode()}  error={error.decode()}')
       sys.exit(1)
    else:
-      logging.debug(f'Stopped ModemManager service: output={output.decode()}  error={error.decode()}')
+      logger.info(f'Stopped ModemManager service: output={output.decode()}  error={error.decode()}')
    # print(f'stop MM: q output={output.decode()}  error={error.decode()}')
 
    cmd = ['ModemManager', '--debug']
    debug_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-   logging.debug(f'Started ModemManager in debug mode; PID={debug_process.pid}')
+   logger.info(f'Started ModemManager in debug mode; PID={debug_process.pid}')
    with debug_process.stdout:
       log_subprocess_output(debug_process.stdout)
    # this process will run until it is terminated (below)
 
    # sending the command in the following format gets an error, so using a shell script instead
    # cmd = ['sudo', 'mmcli', '-m', '0', '--command=\'+QPCMV=1,2\'']
-   cmd = ['/home/judy/repos/remote-phone/set_qpwmc_mode.sh']
+   cmd = ['set_qpwmc_mode.sh']
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
-      logging.fatal(f'Failed to set QPCMV: output={output.decode().rstrip()}  error={error.decode().rstrip()}')
+      logger.fatal(f'Failed to set QPCMV: {output=}  {error=}')
    else:
       # verify the setting
       # cmd = ['mmcli', '-m', '0', '--command=\'+QPCMV?\'']
@@ -54,8 +58,8 @@ def set_qpcmv():
       process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       output, error = process.communicate()
       if '+QPCMV: 1,2' in output.decode():
-         logging.info('QPCMV successfully set to 1,2')
-      logging.debug(f'get QPCMV: output={output.decode().rstrip()}  error={error.decode()}')
+         logger.info('QPCMV successfully set to 1,2')
+      logger.debug(f'get QPCMV: {output=}  {error=}')
 
    debug_process.terminate()
    debug_process.wait()
@@ -64,15 +68,15 @@ def set_qpcmv():
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    output, error = process.communicate()
    if process.returncode != 0:
-      logging.error(f'Failed to start ModemManager: output={output.decode().rstrip()}  error={error.decode()}')
+      logger.error(f'Failed to start ModemManager: {output=}  {error=}')
    else:
-      logging.debug('Started ModemManager service')
+      logger.info('Started ModemManager service')
 
 
 if __name__ == "__main__":
 	try:
 		set_qpcmv()
 	except KeyboardInterrupt:
-		logging.info("Exiting application by user request.")
+		logger.info("Exiting application by user request.")
 	except Exception as e:
-		logging.error(f"Fatal error in main loop: {e}")
+		logger.error(f"Fatal error in main loop: {e}")
