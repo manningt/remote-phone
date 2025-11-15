@@ -37,17 +37,7 @@ async def main(recipient):
 		logger.fatal('no modem found - quitting')
 		sys.exit(1)
 
-	my_phone_number = modem.own_numbers[0]
-	if my_phone_number[0] != '+':
-		my_phone_number = '+' + my_phone_number		
-	my_number_parsed = phonenumbers.parse(my_phone_number, None)
-	if not phonenumbers.is_valid_number(my_number_parsed):
-		logger.warning(f'Invalid phone number: {my_phone_number}')
-		my_number_formatted = my_phone_number
-	else:
-		my_number_formatted = phonenumbers.format_number(my_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
-
-	startup_msg = f'{modem.model} - listening for SMS coming to {my_number_formatted}; '# on {modem}; '
+	startup_msg = f'Listening for SMS; '
 	if recipient:
 		startup_msg += f'will email: {recipient}'
 	else:
@@ -87,8 +77,8 @@ async def main(recipient):
 
 				intro = f'SMS from {phone_number} @ {message_dt}:'
 				abbreviated_message = message_text.strip().replace("\\r\\n", "  ")
-				subject = f'{intro} {abbreviated_message[:TEXT_SUBJECT_MAX_LENGTH]}
-				body = f'{intro}  {message_text}
+				subject = f'{intro} {abbreviated_message[:TEXT_SUBJECT_MAX_LENGTH]}'
+				body = f'{intro}  {message_text}'
 				send_email(recipient, subject, body)
 				logger.info(f'sent email: {recipient=} {subject=}')
 
