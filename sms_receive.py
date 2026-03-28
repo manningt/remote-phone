@@ -72,11 +72,14 @@ async def main(recipient):
 					else:
 						incoming_number_formatted = phonenumbers.format_number(incoming_number_parsed, phonenumbers.PhoneNumberFormat.NATIONAL)
 				except Exception as e:
-					logger.warning(f'Error parsing incoming phone number {phone_number}: {e}')
+					if len(phone_number) > 5:
+						logger.warning(f'Error parsing incoming phone number {phone_number}: {e}')
 					incoming_number_formatted = phone_number
 
-				intro = f'SMS from {phone_number} @ {message_dt}:'
+				intro = f'SMS from {incoming_number_formatted} @ {message_dt}:'
 				abbreviated_message = message_text.strip().replace("\\r\\n", "  ")
+				if len(abbreviated_message) < 5:
+					logger.warning(f'Empty message={abbreviated_message} from phone number {phone_number}')
 				subject = f'{intro} {abbreviated_message[:TEXT_SUBJECT_MAX_LENGTH]}'
 				body = f'{intro}  {message_text}'
 				send_email(recipient, subject, body)
