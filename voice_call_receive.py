@@ -23,20 +23,58 @@ import logging
 logger = logging.getLogger('my_logger')
 # logger.setLevel(logging.DEBUG)
 logger.setLevel(logging.INFO)
-# Create a file handler
-file_handler = logging.FileHandler('/tmp/call_receive.log', mode='w')
+# changed from 'w' mode to 'a' mode
+file_handler = logging.FileHandler('/tmp/call_receive.log', mode='a')
 file_handler.setLevel(logging.INFO)
-# Create a formatter and set it for the handler
 # the -6 and -04d do left alignment in the log output
 formatter = logging.Formatter('[%(asctime)s] L%(lineno)04d %(levelname)-3s: %(message)s')
 file_handler.setFormatter(formatter)
-# Add the handler to the logger
 logger.addHandler(file_handler)
 logger.propagate = False  # Prevent propagation to the console
 
 home_path = os.path.expanduser("~")
 messages_path = os.path.join(home_path, 'messages')
 wav_file_list = [os.path.join(home_path, 'current-message.wav'), os.path.join(home_path, 'beep.wav')]
+
+import subprocess
+import sys
+
+def execute_command(command):
+    try:
+        # Capture output and handle errors
+        result = subprocess.run(
+            command, 
+            shell=True, 
+            check=True,  # Raise CalledProcessError on non-zero exit
+            capture_output=True,  # Capture stdout and stderr
+            text=True  # Return strings instead of bytes
+        )
+        
+        # Successful execution
+        logger.debug(f"{command[0]} Output:", result.stdout)
+        return result.stdout
+
+    except subprocess.CalledProcessError as e:
+        # Comprehensive error handling
+        logger.error(f"{command[0]} failed with exit code {e.returncode}")
+        logger.error(f"Error Output: {e.stderr}")
+        
+        # Different handling based on exit code
+        if e.returncode == 127:  # Command not found
+            logger.error(f"{command[0]} not found.")
+        return None
+
+    except FileNotFoundError:
+        logger.error(f"Executable {command[0]} not found in system path")
+        return None
+
+    except PermissionError:
+        logger.error(f"{command[0]} Permission denied to execute command")
+        return None
+
+    except subprocess.TimeoutExpired:
+        logger.error(f"{command[0]} Command timed out")
+        return None
 
 
 def main(recipient):
@@ -119,7 +157,11 @@ def main(recipient):
 					if audio_process[PLAY] is None:
 						play_cmd = ['aplay', '-q', '-D', 'hw:3,0', wav_file_list[wav_file_index]]
 						# logger.debug(f'Starting audio playback of {wav_file_list[wav_file_index]}.')
-						audio_process[PLAY] = subprocess.Popen(play_cmd)
+						try:
+							audio_process[PLAY] = subprocess.Popen(play_cmd)
+						except subprocess.CalledProcessError as e:
+						    log.error(f"Failed to start aplay: {e}")
+						    sys.exit(1)
 						if wav_file_index == 1 and audio_process[RECORD] is None:
 							# Start recording after the first message is played
 							now = datetime.datetime.now()
@@ -131,6 +173,7 @@ def main(recipient):
 								audio_process[RECORD] = subprocess.Popen(cmd)
 							except Exception as e:
 								logger.error(f'Failed to start arecord process: {e}')
+								sys.exit(1)
 					else:
 						if audio_process[PLAY].poll() is not None:
 							logger.debug(f'Finished aplay of {wav_file_list[wav_file_index]}')
@@ -141,7 +184,7 @@ def main(recipient):
 				break
 
 			if time.monotonic() - start_time >= HANGUP_TIMEOUT:
-				logger.info('Stopping call, hangup due to time_out.')
+				logger.error('Stopping call, hangup due to time_out.')
 				modem.voice.hangup_all()
 				break
 
@@ -150,8 +193,10 @@ def main(recipient):
 		logger.debug('Stopping aplay and arecord processes.')
 		if audio_process[PLAY]:
 			audio_process[PLAY].terminate()
+			audio_process[PLAY] = None
 		if audio_process[RECORD]:
 			audio_process[RECORD].terminate()
+			audio_process[RECORD] = None
 		if not wav_recording_filepath:
 			logger.info("No voice message left")
 		if recipient and wav_recording_filepath:
